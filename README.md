@@ -34,7 +34,7 @@ And within marriage — being the **wife**.
 
 The author's observation is that society places the heaviest burden of a marriage's success or failure on the woman. She is more often blamed when it falls apart. The emotional labor, the children, the household — these land disproportionately on her. Meanwhile, the husband is often perceived as someone who simply lives his life.
 
-So in this game, **you play as the wife.** The husband is an NPC — an autonomous character driven entirely by his own goals. He doesn't fight for the marriage. He doesn't compromise. He wanders, works, rests on the couch. You cannot control him directly. You can only influence him — through tools that look a lot like the real ones: affection, tears, beauty, timing.
+So in this game, **you play as the wife.** The husband is an NPC — an autonomous character driven entirely by his own goals. He is passive — absorbed in his own affairs, wandering, working, resting on the couch. You cannot control him directly. But you can guide his direction through life — through tools that look a lot like the real ones: affection, beauty, timing. The wife cultivates the world. He opens it.
 
 Whether the marriage survives or ends is entirely in your hands. And the game makes sure you feel the weight of that.
 
