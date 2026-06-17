@@ -11,7 +11,7 @@
 [![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Заставка.gif)](https://lexbayart.github.io/marriage-game/)
 No install. No account. Works offline.
 
-[![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Застявка.gif)](https://lexbayart.github.io/marriage-game/)
+[![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Заставка.gif)](https://lexbayart.github.io/marriage-game/)
 
 </div>
 
@@ -199,7 +199,7 @@ marriage-game/
 ├── docs/
 │   └── GUIDE.md            # Complete player guide
 ├── images/
-│   └── Застявка.gif        # Gameplay preview
+│   └── Заставка.gif        # Gameplay preview
 └── README.md               # This file
 ```
 
