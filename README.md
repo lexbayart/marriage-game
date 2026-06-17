@@ -11,7 +11,6 @@
 [![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Заставка.gif)](https://lexbayart.github.io/marriage-game/)
 No install. No account. Works offline.
 
-[![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Заставка.gif)](https://lexbayart.github.io/marriage-game/)
 
 </div>
 
