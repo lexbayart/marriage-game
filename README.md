@@ -8,6 +8,7 @@
 [![Status](https://img.shields.io/badge/status-beta-orange?style=for-the-badge)](#-development-status)
 
 **[▶ Сможешь ли ты сохранить брак? Попробуй прямо сейчас](https://lexbayart.github.io/marriage-game/)**
+[![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Заставка.gif)](https://lexbayart.github.io/marriage-game/)
 No install. No account. Works offline.
 
 [![Gameplay](https://github.com/lexbayart/marriage-game/raw/master/images/Застявка.gif)](https://lexbayart.github.io/marriage-game/)
