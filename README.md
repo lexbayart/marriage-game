@@ -213,7 +213,7 @@ Single HTML file · Zero dependencies · Zero build step
 
 ## 💬 Contact
 
-- **Telegram:** [@lexbayart](https://t.me/lexbayart)
+- **Telegram:** [@lexbay](https://t.me/lexbay)
 - **GitHub Issues:** [Open an issue](../../issues)
 
 ---
