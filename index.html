@@ -702,6 +702,15 @@
             transition: background 0.15s, transform 0.1s;
         }
         #settingsMusicBtn:hover { background: #dc2626; transform: scale(1.1); }
+        #pauseMusicBtn {
+            position: fixed; bottom: 20px; right: 20px;
+            background: #16a34a; border: none; border-radius: 50%;
+            width: 48px; height: 48px; font-size: 1.4rem;
+            cursor: pointer; z-index: 100001;
+            box-shadow: 0 2px 12px #16a34a66;
+            transition: background 0.15s, transform 0.1s;
+        }
+        #pauseMusicBtn:hover { background: #dc2626; transform: scale(1.1); }
 
         /* === Экран выхода === */
         #exitScreen {
@@ -1218,6 +1227,7 @@
         <button id="lastChanceBtn" style="display:none;">🔧 Последний шанс</button>
 
         <button id="pauseBtn" style="display:none;">👩‍❤️‍👨Да нет, Он тот самый!👨</button>
+        <button id="pauseMusicBtn" style="display:none;" onclick="togglePauseMusic()" title="Музыка на паузе">🔔</button>
     </div>
     <div id="remarriageScreen">
         <div id="rmCarouselArea">
@@ -1309,6 +1319,7 @@ function stopBGMusic() {
 }
 
 let pauseMusicInterval = null;
+let pauseMusicOn = true; // управляется кнопкой 🔔/🔕 на экране паузы
 
 let houseMusicGain = null;
 let houseMusicTimeout = null;
@@ -1356,8 +1367,6 @@ function playHouseMusic() {
     let mIdx = 0, cIdx = 0, bIdx = 0;
     let nextTime = audioCtx.currentTime + 0.05;
     let sectionStart = nextTime;
-    const SEC_A_DUR = secA_melody.reduce((s,n)=>s+n.d,0); // длина секции A
-    const SEC_B_DUR = secB_melody.reduce((s,n)=>s+n.d,0);
 
     function playNote(freq, type, gainPeak, dur, startT, detune=0) {
         if (!houseMusicGain) return;
@@ -1511,9 +1520,10 @@ function stopFuneralMusic() {
 }
 
 function playPauseMusic() {
+    if (!pauseMusicOn) return;
     if (pauseMusicInterval) return;
     pauseMusicInterval = setInterval(() => {
-        if (!gamePaused) { stopPauseMusic(); return; }
+        if (!gamePaused || !pauseMusicOn) { stopPauseMusic(); return; }
         const osc = audioCtx.createOscillator();
         osc.type = 'triangle';
         osc.frequency.value = notes['A4']; // 440Hz
@@ -1528,6 +1538,15 @@ function playPauseMusic() {
 }
 function stopPauseMusic() {
     if (pauseMusicInterval) { clearInterval(pauseMusicInterval); pauseMusicInterval = null; }
+}
+function togglePauseMusic() {
+    pauseMusicOn = !pauseMusicOn;
+    if (pauseMusicBtn) pauseMusicBtn.textContent = pauseMusicOn ? '🔔' : '🔕';
+    if (pauseMusicOn) {
+        if (gamePaused) playPauseMusic();
+    } else {
+        stopPauseMusic();
+    }
 }
 
 let gameOverMusicInterval = null;
@@ -1785,25 +1804,25 @@ const WIFE_SPEED_BASE = 300;
 const HUSBAND_SPEED = 200;
 const RUSH_SPEED = 450;
 
-// ===== TEST: ITEM BOUNCE =====
+// ===== ОТСКОК ПРЕДМЕТОВ ОТ МУЖА =====
 // Чтобы убрать механику — поставь false
-const TEST_ITEM_BOUNCE_ENABLED = true;
-const TEST_ITEM_BOUNCE_TYPES = new Set(['dress', 'lipstick', 'ring']);
-const TEST_ITEM_BOUNCE_RADIUS = 20;
+const ITEM_BOUNCE_ENABLED = true;
+const ITEM_BOUNCE_TYPES = new Set(['dress', 'lipstick', 'ring']);
+const ITEM_BOUNCE_RADIUS = 20;
 // Предыдущая позиция мужа для вычисления реального вектора движения
-let _testBouncePrevX = null, _testBouncePrevY = null;
-function testCheckItemBounce() {
-    if (!TEST_ITEM_BOUNCE_ENABLED) return;
+let _itemBouncePrevX = null, _itemBouncePrevY = null;
+function checkItemBounce() {
+    if (!ITEM_BOUNCE_ENABLED) return;
     if (!husband || !items) return;
 
     for (let item of items) {
-        const isStandardBounce = TEST_ITEM_BOUNCE_TYPES.has(item.type);
+        const isStandardBounce = ITEM_BOUNCE_TYPES.has(item.type);
         const isCapricornBounce = husbandArchetype && husbandArchetype.id === 'capricorn' && (item.type === 'toy' || item.type === 'bottle');
         if (!isStandardBounce && !isCapricornBounce) continue;
         const dx = husband.x - item.x;
         const dy = husband.y - item.y;
         const dist = Math.hypot(dx, dy);
-        const minDist = husband.radius * 0.18 + TEST_ITEM_BOUNCE_RADIUS;
+        const minDist = husband.radius * 0.18 + ITEM_BOUNCE_RADIUS;
         if (dist >= minDist || dist < 0.1) continue;
 
         // Нормаль столкновения: от предмета к мужу
@@ -1816,9 +1835,9 @@ function testCheckItemBounce() {
 
         // Реальный вектор приближения — из предыдущей позиции
         let velX, velY;
-        if (_testBouncePrevX !== null) {
-            velX = husband.x - _testBouncePrevX - nx * (minDist + 1 - dist); // до выталкивания
-            velY = husband.y - _testBouncePrevY - ny * (minDist + 1 - dist);
+        if (_itemBouncePrevX !== null) {
+            velX = husband.x - _itemBouncePrevX - nx * (minDist + 1 - dist); // до выталкивания
+            velY = husband.y - _itemBouncePrevY - ny * (minDist + 1 - dist);
         } else {
             // Если нет истории — используем dir
             velX = husband.dir.x;
@@ -1881,10 +1900,10 @@ function testCheckItemBounce() {
     }
 
     // Сохраняем текущую позицию как предыдущую для следующего кадра
-    _testBouncePrevX = husband.x;
-    _testBouncePrevY = husband.y;
+    _itemBouncePrevX = husband.x;
+    _itemBouncePrevY = husband.y;
 }
-// ===== END TEST: ITEM BOUNCE =====
+// ===== КОНЕЦ: ОТСКОК ПРЕДМЕТОВ ОТ МУЖА =====
 
 // Обновление пружинной анимации предметов
 function updateItemSprings(dt) {
@@ -1916,13 +1935,8 @@ const CHILD_ORBIT_SPEED = 100;
 const DEATH_MIN_RADIUS = 30; // Смертельный максимум - радиус жены при котором game over
 const HUSBAND_DEATH_MIN_RADIUS = 50; // Смертельный максимум - радиус мужа при котором game over
 const MIN_ITEM_DIST = 100; // Минимальное расстояние между предметами
-const MIN_COUCH_DIST = 500; // Минимальное расстояние между диванами
-const MIN_OFFICE_DIST = 500; // Минимальное расстояние между офисами
-const MIN_DECORATION_DIST = 50; // ИЗМЕНЕНИЕ: Уменьшено с 70 до 50 пикселей
 
 // Декорации для фона
-
-const DECORATIONS_PER_CHUNK = 8; // Количество декораций на чанк
 
 // ========== СИСТЕМА БИОМОВ ==========
 const BIOMES = {
@@ -1977,7 +1991,11 @@ const BIOMES = {
 };
 
 const biomesList = ['green', 'pink', 'blue', 'redblack', 'whitegray', 'brown', 'indigo', 'yellow'];
-const biomeRegions = new Map(); // Хранит информацию о регионах биомов
+// Кэш вычисленного цвета тайла (ключ "tileX_tileY" -> "hsl(...)").
+// Цвет тайла — чистая функция от координат и worldSeed, поэтому его можно
+// посчитать один раз и переиспользовать, а не пересчитывать 60 раз в секунду
+// для каждого видимого тайла. Очищается в initGame() при генерации нового мира.
+const tileColorCache = new Map();
 
 function selectBiomeByChance(seed) {
     const roll = seededRandom(seed);
@@ -2062,7 +2080,6 @@ function getBiomeColor(biomeName, tileX, tileY) {
     const seed = tileX * 73856093 ^ tileY * 19349663;
     
     // Определяем позицию тайла внутри чанка
-    const tileSize = 50;
     const chunkX = Math.floor(tileX / CHUNK_SIZE);
     const chunkY = Math.floor(tileY / CHUNK_SIZE);
     
@@ -2133,6 +2150,7 @@ const deathReason = document.getElementById('deathReason');
 const restartBtn = document.getElementById('restartBtn');
 const lastChanceBtn = document.getElementById('lastChanceBtn');
 const pauseBtn = document.getElementById('pauseBtn');
+const pauseMusicBtn = document.getElementById('pauseMusicBtn');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -2165,7 +2183,7 @@ let wifePrevX = 0, wifePrevY = 0;
 // ========== ВНУТРИИГРОВЫЕ ГОДЫ ==========
 let igDays = 0; // Всего накоплено внутриигровых дней (1 реальная секунда = 5 дней)
 // Реалтайм: igDays пополняется в update(dt) как igDays += dt * 5
-// Старые события-добавки аннулированы — функции оставлены как заглушки
+// Текущий возраст персонажей и строка даты на основе накопленных внутриигровых дней
 function getWifeCurrentAge() { return wifeAge + Math.floor(igDays / 365); }
 function getHusbandCurrentAge() { return husbandAge + Math.floor(igDays / 365); }
 function igGetString() {
@@ -2181,10 +2199,8 @@ function igGetString() {
 // Механика 12: защита от суммирования параллельного кормления разных младенцев
 let igFeedWindowTimer = 0;   // таймер окна (3 мин = 180 сек)
 let igFeedWindowActive = false;
-let igLastFedId = null;      // id последнего накормленного ребёнка
 let igBookWindowTimer = 0;   // таймер окна учебников (3 мин = 180 сек)
 let igBookWindowActive = false;
-let igLastBookId = null;     // id подростка последнего поднявшего учебник
 
 // ========== ЮБИЛЕИ СВАДЬБЫ ==========
 const WEDDING_ANNIVERSARIES = [
@@ -2231,7 +2247,6 @@ let kissAnimation = null;
 let wifeThrowAnimation = null; // Анимация отброса жены весами
 let hintText = null;
 let currentCoinHint = null;
-let currentWarningQuote = "";
 let warningQuoteTimer = 0;
 let wifeHungerTimer = 15;
 let lastDeathReason = "";
@@ -2329,13 +2344,9 @@ let alarmActive = false; // Флаг активности тревоги
 let alarmOscillators = []; // Массив активных осцилляторов тревоги для немедленной остановки
 let alarmMasterGain = null; // Мастер gain для мгновенного отключения всех alarm звуков
 let alarmMuted = false; // РУБИЛЬНИК - если true, звук alarm заглушён
-let currentAlarmOsc = null; // Текущий осциллятор тревоги для принудительной остановки
 let ringSafetyTimerBuff = { active: false, timer: 0 }; // Независимый баф таймера безопасности 20 сек (рождается от кольца)
 let bladeAngle = 0; // Угол вращения лопасти мельницы от низкого радиуса (в радианах)
-let bladeHitCooldown = 0; // Кулдаун урона от лопасти низкого радиуса (чтобы не бить каждый кадр)
-let bladeLowRadiusWasActive = false; // Была ли активна лопасть опасности в прошлом кадре
 let bladeAngerAngle = 0; // Угол вращения лопасти обиды (в радианах)
-let bladeAngerHitCooldown = 0; // Кулдаун урона от лопасти обиды
 let bladeAngerPulse = 0; // Таймер для пульсации иконки недовольства 😤 и лопасти обиды (10 сек)
 
 // Ледяная лопасть ♑️ Козерога
@@ -2452,20 +2463,11 @@ let slutSpawnTimer = 0; // Таймер спавна Сучек
 // Система кота
 let cat = null; // {x, y, vx, vy, speed, state, quoteTimer, quote, stopTimer, chased, targetedByHusband, scareTimer}
 let catSpawnTimer = 60; // Таймер спавна кота (60 секунд без зачатия)
-let lastConceptionTime = 0; // Время последнего зачатия
 let catTamingProgress = 0; // Прогресс приручения кота (0-2)
 let catTamed = false; // Прирученный кот на орбите жены
 let tamedCats = []; // [{angle, speed, baseSpeed, ageYears, deathAge, tamingIgDays}] - до 3 котов на орбите
 let tamedCat = null; // Compat alias — используется для первого кота (устарело, переходим на tamedCats)
 let catPenaltyNextIgDays = -1; // Следующий igDays для штрафа мужа от котов
-let catPenaltyAppliedThisTick = false; // Защита от дублирования штрафа котов
-
-// Прогресс сбора монет мужа (для визуализации)
-let coinProgress = {
-    count: 0,           // 0-30
-    progress: 0,        // 0.0-1.0
-    timer: 0            // 0.3 сек или 0.5 сек
-};
 
 // Система прогрессии разблокировок
 let unlockProgress = {
@@ -2507,11 +2509,6 @@ const OFFICE_WORKING_QUOTES = [
     "Я работаю", "Отстань", "Не сейчас"
 ];
 
-const WARNING_QUOTES = [
-    "Вернись к Мужу", "Ты куда?", "Не шути так", "Это не серьезно",
-    "Ну хочешь одна, будь", "Как хочешь", "Возвращайся", "Что ты делаешь?", "Не уходи"
-];
-
 const PREGNANCY_QUOTES = [
     "Надо бы предохраняться", "Ну теперь пахать", "Я не готов", 
     "Надеюсь двойня", "Растет семья"
@@ -2520,11 +2517,6 @@ const PREGNANCY_QUOTES = [
 const BIRTH_QUOTES = [
     "Я твоя мама", "Привет пупсик", "Вот мой Зайчонок", 
     "Последний раз", "Фух, выносила"
-];
-
-const HUNGER_QUOTES = [
-    "Чего то хочу", "вот бы мне", "Ммм ням", "Такая дурашка я", 
-    "Эх, чего это я", "а если бы", "Интересно", "А что если…"
 ];
 
 const BABY_CRY_QUOTES = [
@@ -2605,7 +2597,6 @@ restartBtn.addEventListener('click', () => {
 
 // ========== ЭКРАН ПОИСКА НОВОГО МУЖА ==========
 const rmScreen = document.getElementById('remarriageScreen');
-const rmAgeNum = document.getElementById('rmAgeNum');
 const rmMatchBtn = document.getElementById('rmMatchBtn');
 const rmSkipBtn = document.getElementById('rmSkipBtn');
 const rmSlots = [
@@ -2861,12 +2852,7 @@ function getAgeWord(age) {
     return 'лет';
 }
 
-function rmPickRandomEmoji() {
-    return HUSBAND_EMOJIS[Math.floor(Math.random() * HUSBAND_EMOJIS.length)];
-}
-
 // ---- Батчевый шаффл для карусели ----
-let rmEmojiDeck = [];
 function rmShuffleDeck(arr) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -3073,9 +3059,6 @@ function showRemarriageScreen() {
                 clearInterval(rmState.yearInterval);
                 rmState.yearInterval = setInterval(yearTick, newInterval);
             }
-            
-            // Сброс колоды при смене возрастной группы
-            if ([24, 40, 51, 66].includes(rmState.age)) rmEmojiDeck = [];
             
             rmAdvanceCarousel();
             rmCheckYearProbability();
@@ -3365,6 +3348,9 @@ function togglePause() {
         restartBtn.style.display = 'none';
         lastChanceBtn.style.display = 'none';
         setHomeBtnVisible(false);
+        pauseMusicBtn.style.display = 'block';
+        pauseMusicBtn.textContent = pauseMusicOn ? '🔔' : '🔕';
+        playPauseMusic();
     } else {
         playBGMusic();
         // Возобновляем таймер
@@ -3380,6 +3366,8 @@ function togglePause() {
         restartBtn.style.display = 'none';
         deathReason.style.display = 'none';
         setHomeBtnVisible(true);
+        pauseMusicBtn.style.display = 'none';
+        stopPauseMusic();
     }
 }
 
@@ -3735,7 +3723,7 @@ function applyOffScreenAging(carryState, newWifeAge) {
             radius: 0, speedBoostTimer: 0, needTimer: 73,
             isCrying: false, cryDamageTimer: 0,
             damageFlash: 0, healFlash: 0, interactionFlash: 0,
-            bladeHitCooldown: 0, bladeAngerHitCooldown: 0, frozenTimer: 0,
+            bladeHitCooldown: 0, bladeAngerHitCooldown: 0, bladeAlcoholHitCooldown: 0, frozenTimer: 0,
             biologicalFatherEmoji: bioDad,
             ageInYears: ageYears, isFlying: false
         };
@@ -3924,6 +3912,7 @@ function initGame() {
     ui.style.display = '';
 
     worldSeed = Math.floor(Math.random() * 1000000);
+    tileColorCache.clear(); // новый мир — старые закэшированные цвета тайлов больше не годятся
     generateHouseWallDecorations();
     generateFurniturePrices();
     // сбрасываем сетку дома чтобы перестроить с новыми декорациями
@@ -3936,14 +3925,12 @@ function initGame() {
     igDays = 0;
     igFeedWindowTimer = 0;
     igFeedWindowActive = false;
-    igLastFedId = null;
     igBookWindowTimer = 0;
     igBookWindowActive = false;
-    igLastBookId = null;
     shownAnniversaries = new Set();
     currentAnniversarySymbol = '';
     
-    wife = { x: -50, y: 80, radius: 100, damageFlash: 0, healFlash: 0, interactionFlash: 0, bladeHitCooldown: 0, bladeAngerHitCooldown: 0, frozenTimer: 0 };
+    wife = { x: -50, y: 80, radius: 100, damageFlash: 0, healFlash: 0, interactionFlash: 0, bladeHitCooldown: 0, bladeAngerHitCooldown: 0, bladeAlcoholHitCooldown: 0, frozenTimer: 0 };
     husband = { 
         x: 50, y: 80, radius: 200, 
         dir:{x:1,y:0}, moveTimer:0, 
@@ -4035,15 +4022,15 @@ function initGame() {
     casinos = []; alcoholDrinks = []; // Сброс казино и алкоголя
     children = [];
     chunks = new Map(); activeChunks = new Set();
+    fogResetInfantCleanupDone = false; fogResetTeenCleanupDone = false; fogResetScanTimer = 0;
     thoughtTimer = 0; floatingTexts = []; centerTextQueue = []; centerTextActive = false;
     sluts = []; compliments = []; orbitCompliments = []; slutSpawnTimer = 0;
-    cat = null; catSpawnTimer = 60; lastConceptionTime = 0; // Сброс кота
+    cat = null; catSpawnTimer = 60; // Сброс кота
     catTamingProgress = 0; catTamed = false; tamedCat = null; tamedCats = []; catPenaltyNextIgDays = -1; // Сброс приручения
     billSpawnTimer = 0;
     keys = {};
     kissAnimation = null; hintText = null;
     currentCoinHint = null;
-    currentWarningQuote = WARNING_QUOTES[0];
     warningQuoteTimer = 0;
     wifeHungerTimer = 15 + getCatHungerBonus() + getWifeWishBonus();
     gamePaused = false;
@@ -4068,7 +4055,6 @@ function initGame() {
     };
     ringSafetyTimerBuff = { active: false, timer: 0 }; // Сброс бафа таймера кольца
     bladeAngle = 0; // Сброс угла лопасти низкого радиуса
-    bladeLowRadiusWasActive = false; // Сброс состояния лопасти опасности
     bladeAngerAngle = 0; // Сброс угла лопасти обиды
     bladeAlcoholAngle = 0; // Сброс угла лопасти алкоголя
     careerVisits = 0; // Сброс посещений карьеры
@@ -4083,6 +4069,7 @@ function initGame() {
     houseLastOpenedIgDays = 0;
     houseDirtCheckedYear = -1;
     husbandDesireCells = [];
+    wifeWishCells = [];
     husbandDesireOfficeCell = null;
     husbandDesireOfficeHint = null;
     husbandDesireCellHints = {};
@@ -4118,13 +4105,6 @@ function initGame() {
         nextFakeAt: 0,
         chunkStayTimer: 0,
         lastChunkKey: ''
-    };
-    
-    // Сброс прогресса монет
-    coinProgress = {
-        count: 0,
-        progress: 0,
-        timer: 0
     };
     
     // Сброс прогресса разблокировок (вариант A - сбрасывается при рестарте)
@@ -4493,18 +4473,15 @@ function generateChunk(cx, cy) {
             const roll = seededRandom(seed + i*200 + 50);
             
             // Система прогрессии разблокировок
-            let chocolateChance = 0.85;
             let lipstickChance = 0;
             let dressChance = 0.15;
             let ringChance = 0;
             
             if (unlockProgress.lipstickUnlocked) {
-                chocolateChance = 0.65;
                 lipstickChance = 0.20;
             }
             
             if (unlockProgress.ringUnlocked) {
-                chocolateChance -= 0.10;
                 ringChance = 0.10;
             }
             
@@ -4672,6 +4649,11 @@ function updateActiveChunks() {
     }
 }
 
+// Состояние для оптимизации updateFogReset (см. комментарии внутри функции)
+let fogResetInfantCleanupDone = false;
+let fogResetTeenCleanupDone = false;
+let fogResetScanTimer = 0;
+
 function updateFogReset(dt) {
     // ПАУЗА: не работаем с туманом
     if (gamePaused) return;
@@ -4679,8 +4661,15 @@ function updateFogReset(dt) {
     const currentTime = performance.now() / 1000;
     const RESET_TIME = 60;
     
+    // Оптимизация: раньше эта очистка гоняла .filter() по ВСЕМ чанкам каждый
+    // кадр, пока условие истинно (т.е. потенциально вечно). Теперь чистим
+    // один раз при переходе в состояние "нет младенцев/подростков-неучей",
+    // а не на каждом кадре — результат тот же, лишних предметов взяться
+    // неоткуда, т.к. они спавнятся только при обратном условии.
     const hasInfants = children.some(c => !c.isTeenager) || wifeWithInfant.active;
-    if (!hasInfants) {
+    if (hasInfants) {
+        fogResetInfantCleanupDone = false;
+    } else if (!fogResetInfantCleanupDone) {
         for (let i = items.length - 1; i >= 0; i--) {
             if (items[i].type === 'bottle' || items[i].type === 'toy') {
                 items.splice(i, 1);
@@ -4692,17 +4681,21 @@ function updateFogReset(dt) {
                 item.type !== 'bottle' && item.type !== 'toy'
             );
         }
+        fogResetInfantCleanupDone = true;
     }
     
     // Убираем учебники если нет не-выпускников подростков
     const hasNonGradTeens = children.some(c => c.isTeenager && !c.isGraduated);
-    if (!hasNonGradTeens) {
+    if (hasNonGradTeens) {
+        fogResetTeenCleanupDone = false;
+    } else if (!fogResetTeenCleanupDone) {
         for (let i = items.length - 1; i >= 0; i--) {
             if (items[i].type === 'textbook') items.splice(i, 1);
         }
         for (let [key, chunk] of chunks.entries()) {
             chunk.items = chunk.items.filter(item => item.type !== 'textbook');
         }
+        fogResetTeenCleanupDone = true;
     }
     
     // Обновляем lastVisit для чанков вокруг МУЖА
@@ -4727,7 +4720,15 @@ function updateFogReset(dt) {
         }
     }
     
-    for (let [key, chunk] of chunks.entries()) {
+    // Оптимизация: полное сканирование карты чанков (которая только растёт
+    // и никогда не уменьшается) на предмет "протухших" по RESET_TIME чанков —
+    // не обязательно делать 60 раз в секунду. Раз в секунду более чем достаточно:
+    // задержка сброса тумана становится незаметной (доли секунды), а нагрузка
+    // на длинной игровой сессии падает в ~60 раз.
+    fogResetScanTimer += dt;
+    if (fogResetScanTimer >= 1) {
+        fogResetScanTimer = 0;
+        for (let [key, chunk] of chunks.entries()) {
         if (chunk.lastVisit > 0 && currentTime - chunk.lastVisit > RESET_TIME) {
             chunk.fogCleared.clear();
             chunk.items = [];
@@ -4738,6 +4739,19 @@ function updateFogReset(dt) {
             const occupied = [];
             
             function tooClose(x, y, minDist = MIN_ITEM_DIST) {
+                // Не спавним поверх церкви (0,0) — так же, как при первой генерации чанка
+                const distToChurch = Math.hypot(x - 0, y - 0);
+                if (distToChurch < 170) return true;
+                
+                // Не спавним поверх уже стоящих в этом чанке диванов/религиозных зданий —
+                // они не сбрасываются вместе с items, но раньше эта проверка их не видела
+                for (let c of chunk.couches) {
+                    if (Math.hypot(x - c.x, y - c.y) < 170) return true;
+                }
+                for (let rb of chunk.religiousBuildings) {
+                    if (Math.hypot(x - rb.x, y - rb.y) < 170) return true;
+                }
+                
                 for (let p of occupied) 
                     if (Math.hypot(x-p.x, y-p.y) < minDist) return true;
                 return false;
@@ -4784,18 +4798,15 @@ function updateFogReset(dt) {
                     const roll = seededRandom(seed + i*200 + 50 + 5000);
                     
                     // Система прогрессии разблокировок
-                    let chocolateChance = 0.85;
                     let lipstickChance = 0;
                     let dressChance = 0.15;
                     let ringChance = 0;
                     
                     if (unlockProgress.lipstickUnlocked) {
-                        chocolateChance = 0.65;
                         lipstickChance = 0.20;
                     }
                     
                     if (unlockProgress.ringUnlocked) {
-                        chocolateChance -= 0.10;
                         ringChance = 0.10;
                     }
                     
@@ -4857,6 +4868,7 @@ function updateFogReset(dt) {
             }
         }
     }
+    }
 }
 
 // ========== LOOP ==========
@@ -4867,7 +4879,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     
     if (!gamePaused) update(dt);
-    render();
+    render(dt);
     
     // Обновляем счётчик внутриигровых лет
     const igEl = document.getElementById('igDateDisplay');
@@ -4958,20 +4970,18 @@ function update(dt) {
         igFeedWindowTimer -= dt;
         if (igFeedWindowTimer <= 0) {
             igFeedWindowActive = false;
-            igLastFedId = null;
         }
     }
     if (igBookWindowActive) {
         igBookWindowTimer -= dt;
         if (igBookWindowTimer <= 0) {
             igBookWindowActive = false;
-            igLastBookId = null;
         }
     }
     updateActiveChunks();
     moveWife(dt);
     moveHusband(dt);
-    testCheckItemBounce();
+    checkItemBounce();
     updateItemSprings(dt);
     moveThoughts(dt);
     updateCouches(dt);
@@ -5245,11 +5255,11 @@ function updateNursing(dt) {
                 const quote = BABY_CRY_QUOTES[Math.floor(Math.random() * BABY_CRY_QUOTES.length)];
                 showFloatingText(wife.x, wife.y - 100, `-1😭 ${quote}`, '#ff4444');
                 checkWifeRadiusDeath();
+                if (!gameActive) return;
                 checkHusbandRadiusDeath();
+                if (!gameActive) return;
                 showFloatingText(husband.x, husband.y - 60, '-1😭', '#ff6666');
                 snd('cry');
-                checkWifeRadiusDeath();
-                checkHusbandRadiusDeath();
             }
         }
     } // Конец проверки заморозки таймеров грудного младенца во время битвы с судьей
@@ -5271,70 +5281,6 @@ function getOrbitSpeed(baseSpeed) {
     }
     
     return Math.max(0, baseSpeed + speedModifier);
-}
-
-function spawnChild(count = 1) {
-    for (let i = 0; i < count; i++) {
-        const gender = Math.random() < 0.5 ? 'boy' : 'girl';
-        
-        // ИЗМЕНЕНИЕ 4: Вычисляем оптимальный угол для нового младенца
-        let newAngle;
-        if (children.length === 0) {
-            // Если детей нет, случайный угол
-            newAngle = Math.random() * Math.PI * 2;
-        } else {
-            // Находим угол максимально удаленный от всех существующих детей
-            const numSamples = 720; // ИЗМЕНЕНИЕ 4: Увеличено до 720 для более точного размещения
-            let bestAngle = 0;
-            let maxMinDist = 0;
-            
-            for (let sample = 0; sample < numSamples; sample++) {
-                const testAngle = (sample / numSamples) * Math.PI * 2;
-                
-                // Находим минимальное расстояние до ближайшего ребенка
-                let minDist = Math.PI * 2;
-                for (let child of children) {
-                    let dist = Math.abs(testAngle - child.angle);
-                    // Учитываем циклическую природу углов
-                    if (dist > Math.PI) dist = Math.PI * 2 - dist;
-                    if (dist < minDist) minDist = dist;
-                }
-                
-                // Выбираем угол с максимальным минимальным расстоянием
-                if (minDist > maxMinDist) {
-                    maxMinDist = minDist;
-                    bestAngle = testAngle;
-                }
-            }
-            
-            newAngle = bestAngle;
-        }
-        
-        const child = {
-            gender: gender,
-            angle: newAngle,
-            orbitSpeed: CHILD_ORBIT_SPEED,
-            isTeenager: false,
-            bottlesCollected: 0,
-            size: 0.5,
-            goodMood: false,
-            goodMoodTimer: 0,
-            laughTimer: 10,
-            radius: 0,
-            speedBoostTimer: 0,
-            needTimer: 73,
-            isCrying: false,
-            cryDamageTimer: 0,
-            damageFlash: 0,
-            healFlash: 0,
-            interactionFlash: 0,
-            bladeHitCooldown: 0, frozenTimer: 0,
-            bladeAngerHitCooldown: 0,
-            biologicalFatherEmoji: husbandBaseEmoji // Запоминаем отца при зачатии
-        };
-        children.push(child);
-        sessionStats.childrenBorn++;
-    }
 }
 
 function spawnChildWithAnimation() {
@@ -5388,6 +5334,7 @@ function spawnChildWithAnimation() {
         interactionFlash: 0,
         bladeHitCooldown: 0, frozenTimer: 0,
         bladeAngerHitCooldown: 0,
+        bladeAlcoholHitCooldown: 0,
         biologicalFatherEmoji: husbandBaseEmoji,
         isFlying: true,
         flyProgress: 0,
@@ -5423,6 +5370,7 @@ function updateChildren(dt) {
             wife.radius = Math.max(1, Math.round(wife.radius - 30));
             wife.damageFlash = 0.2;
             showFloatingText(wife.x, wife.y - 70, '-30😼⚰️', '#b0a0b0');
+            checkWifeRadiusDeath();
             tamedCats.splice(ci, 1);
         }
     }
@@ -5430,7 +5378,6 @@ function updateChildren(dt) {
     catTamed = tamedCats.length > 0;
 
     // Штраф мужу от котов каждые 6 игровых месяцев (180 дней)
-    catPenaltyAppliedThisTick = false;
     if (tamedCats.length > 0) {
         if (catPenaltyNextIgDays < 0) catPenaltyNextIgDays = igDays + 180;
         if (igDays >= catPenaltyNextIgDays) {
@@ -5438,6 +5385,7 @@ function updateChildren(dt) {
             husband.radius = Math.max(1, Math.round(husband.radius - penalty));
             husband.damageFlash = 0.2;
             showFloatingText(husband.x, husband.y - 70, `-${penalty} 😼👑`, '#ff9966');
+            checkHusbandRadiusDeath();
             catPenaltyNextIgDays += 180;
         }
     } else {
@@ -5820,6 +5768,11 @@ function updateChildren(dt) {
                 scoutedSofas[i].discovered = false;
             }
         }
+        // Удаляем запись если дивана/здания больше нет среди активных чанков
+        const stillExists = couches.includes(scoutedSofas[i].sofa) || religiousBuildings.includes(scoutedSofas[i].sofa);
+        if (!stillExists) {
+            scoutedSofas.splice(i, 1);
+        }
     }
 }
 
@@ -5938,6 +5891,8 @@ function tryKiss() {
             wife.radius = Math.max(1, Math.round(wife.radius - 10));
             wife.damageFlash = 0.2;
             cat.interactionFlash = 0.2;
+            checkWifeRadiusDeath();
+            if (!gameActive) return;
             
             showFloatingText(wife.x, wife.y - 60, '-10 Кись-кись', '#ff4444');
             showFloatingText(cat.x, cat.y - 40, 'Мурр😻', '#4fc3f7');
@@ -6426,6 +6381,8 @@ function tryKiss() {
             // Беременность: +70 жене, -40 мужу
             wife.radius = Math.round(wife.radius + 70);
             husband.radius = Math.round(husband.radius - 40);
+            checkHusbandRadiusDeath();
+            if (!gameActive) return;
             
             // Сброс таймера хотелок при зачатии
             wifeHungerTimer = 15 + getCatHungerBonus() + getWifeWishBonus();
@@ -6754,7 +6711,6 @@ function moveHusband(dt) {
             const halfSize = 104; // 208px / 2
             const dx = Math.abs(husband.x - item.x);
             const dy = Math.abs(husband.y - item.y);
-            const dist = Math.hypot(dx, dy);
             const withinX = dx < halfSize;
             const withinY = dy < halfSize;
             
@@ -6896,6 +6852,7 @@ function moveHusband(dt) {
                             
                             husband.rushTimer = 0;
                             snd('ban');
+                            checkHusbandRadiusDeath();
                             return;
                         }
                         
@@ -6982,6 +6939,7 @@ function moveHusband(dt) {
                     husband.y = item.y + Math.sin(pushAngle) * pushDist;
                     
                     snd('ban');
+                    checkHusbandRadiusDeath();
                     return;
                 }
                 
@@ -7218,6 +7176,7 @@ function moveHusband(dt) {
                     husband.y = item.y + Math.sin(pushAngle) * pushDist;
                     
                     snd('ban');
+                    checkHusbandRadiusDeath();
                     return;
                 }
                 
@@ -7290,7 +7249,6 @@ function moveHusband(dt) {
     clearFogAround(husband.x, husband.y, husband.radius);
     
     // Проверяем столкновение с казино ПОСЛЕ движения
-    const casinosInItems = items.filter(i => i.type === 'casino');
     for (let item of items) {
         if (item.type === 'casino' && (item.cooldown === undefined || item.cooldown <= 0)) {
             const halfSize = 104; // 208px / 2
@@ -7392,6 +7350,7 @@ function updateBills(dt) {
             billsDebt = 0;
             billsVisits = 0;
             bills = [];
+            checkHusbandRadiusDeath();
             return;
         }
         
@@ -7444,6 +7403,7 @@ function updateBills(dt) {
                 billsDebt = 0;
                 billsVisits = 0;
                 bills = [];
+                checkHusbandRadiusDeath();
                 return;
             }
         }
@@ -7461,6 +7421,7 @@ function updateBills(dt) {
             billsDebt = 0;
             billsVisits = 0;
             bills = [];
+            checkHusbandRadiusDeath();
             return;
         }
         
@@ -7512,6 +7473,7 @@ function updateBills(dt) {
                     billsDebt = 0;
                     billsVisits = 0;
                     bills = [];
+                    checkHusbandRadiusDeath();
                     return;
                 }
             }
@@ -7857,6 +7819,7 @@ function updateJudgeBullets(dt) {
                     husband.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 80, '-20', '#ff0000');
                     snd('ban');
+                    checkHusbandRadiusDeath();
                 } else {
                     judge.radius = Math.max(1, Math.round(judge.radius - 10));
                     judge.damageFlash = 0.5; // Длительность мигания окружности
@@ -7887,6 +7850,7 @@ function updateJudgeBullets(dt) {
                     husband.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 80, '-10', '#ff0000');
                     snd('ban');
+                    checkHusbandRadiusDeath();
                     
                     judge.radius = Math.round(judge.radius + 10);
                     judge.healFlash = 0.2;
@@ -7933,6 +7897,11 @@ function updateJudgeBullets(dt) {
                     wife.damageFlash = 0.2;
                     showFloatingText(wife.x, wife.y - 80, '-20', '#ff0000');
                     
+                    checkHusbandRadiusDeath();
+                    if (!gameActive) return;
+                    checkWifeRadiusDeath();
+                    if (!gameActive) return;
+                    
                     judge.radius = Math.round(judge.radius + 40);
                     judge.healFlash = 0.2;
                     showFloatingText(judge.x, judge.y - 80, '+40', '#00ff00');
@@ -7941,6 +7910,7 @@ function updateJudgeBullets(dt) {
                     husband.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 80, '-10', '#ff0000');
                     snd('ban');
+                    checkHusbandRadiusDeath();
                     
                     judge.radius = Math.round(judge.radius + 10);
                     judge.healFlash = 0.2;
@@ -8440,7 +8410,6 @@ function updateCat(dt) {
             // Поворачиваем в сторону жены (центра камеры)
             const toWifeX = wife.x - cat.x;
             const toWifeY = wife.y - cat.y;
-            const len = Math.hypot(toWifeX, toWifeY);
             const newAngle = Math.atan2(toWifeY, toWifeX) + (Math.random() - 0.5) * Math.PI / 2;
             cat.vx = Math.cos(newAngle) * cat.speed;
             cat.vy = Math.sin(newAngle) * cat.speed;
@@ -8472,6 +8441,17 @@ function updateCompliments(dt) {
                 if (comp.lifeTimer <= 0) {
                     // Письмо истекло не достигнув цели — считаем как пропущенное
                     sessionStats.slutsMissed++;
+                    // Растворяем сучку, создавшую это письмо (иначе зависает в 'stopped' навсегда)
+                    if (comp.slutId) {
+                        for (let slut of sluts) {
+                            if (slut.id === comp.slutId && slut.state !== 'dissolving') {
+                                slut.state = 'dissolving';
+                                slut.dissolveTimer = 0.5;
+                                slut.dissolveComment = '💨';
+                                break;
+                            }
+                        }
+                    }
                     compliments.splice(i, 1);
                     continue;
                 }
@@ -8572,11 +8552,16 @@ function updateCompliments(dt) {
                     wife.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 60, `-${damage}⁉️💌`, '#ff4444');
                     showFloatingText(wife.x, wife.y - 60, `-${damage}⁉️💌`, '#ff4444');
+                    checkHusbandRadiusDeath();
+                    if (!gameActive) return;
+                    checkWifeRadiusDeath();
+                    if (!gameActive) return;
                 } else {
                     // Муж вне кадра - урон только ему
                     husband.radius = Math.max(1, Math.round(husband.radius - damage));
                     husband.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 60, `-${damage}💌👯‍♀️`, '#ff4444');
+                    checkHusbandRadiusDeath();
                 }
                 
                 snd('ban');
@@ -8686,6 +8671,7 @@ function updateOrbitCompliments(dt) {
             showFloatingText(wife.x, wife.y - 60, '-10👹', '#ff4444');
             showFloatingText(husband.x, husband.y - 60, '*Свистит🥸', '#aaaaaa');
             snd('ban');
+            checkWifeRadiusDeath();
             oc.wifeHitCooldown = 0.5; // устанавливаем кулдаун 0.5 сек
         }
         
@@ -8722,6 +8708,7 @@ function updateOrbitCompliments(dt) {
                     husband.damageFlash = 0.2;
                     showFloatingText(husband.x, husband.y - 60, '-5🍫💌', '#ff4444');
                     snd('ban');
+                    checkHusbandRadiusDeath();
                 }
             }
         }
@@ -8829,6 +8816,8 @@ function checkItemCollisions() {
         }
         
         
+        // ПРОВЕРЕНО, НЕ ТРОГАТЬ: если рядом окажется ребёнок без механики к этому предмету,
+        // подбор может отложиться максимум на 1 кадр (~15-30мс) — неощутимо, само рассасывается.
         if (!collectedBy) {
             for (let child of children) {
                 // ИЗМЕНЕНИЕ: Пропускаем летящих младенцев
@@ -9198,7 +9187,6 @@ function handleNursingPickup(item) {
 function handleInfantPickup(child, item) {
     const BABY_BOTTLE_QUOTES = ["Ням 🍼", "Ам 🍼"];
     const BABY_TOY_QUOTES = ["Уи-и-и 🧸", "Игаю 🧸", "Хи-хи 🧸"];
-    const BABY_ORBIT_QUOTES = ["Как вырос 👶", "Уже большой 👶", "Теперь сам 👶"];
     
     // Сброс таймера хотелок когда младенец подбирает предметы (73 сек = 1 игровой год)
     wifeHungerTimer = 73 + getCatHungerBonus() + getWifeWishBonus();
@@ -9307,7 +9295,7 @@ function handleInfantPickup(child, item) {
         snd('laugh');
     } else if (item.type === 'chocolate') {
         // Младенец не подбирает шоколад если это убьёт мужа
-        if (husband.radius - 5 <= 0) return false;
+        if (husband.radius - 5 <= HUSBAND_DEATH_MIN_RADIUS) return false;
         child.goodMood = true;
         child.goodMoodTimer = 5;
         child.speedBoostTimer = 10;
@@ -9323,6 +9311,7 @@ function handleInfantPickup(child, item) {
         const childPosChoc = getChildPosition(child);
         spawnItemPickupAnim('🍫', item.x, item.y, childPosChoc.x, childPosChoc.y);
         snd('pickup');
+        checkHusbandRadiusDeath();
     }
     
     return true;
@@ -9435,8 +9424,6 @@ function handleTextbookPickup(child, item) {
         }
         return false;
     }
-
-    const childId = child.id !== undefined ? child.id : children.indexOf(child);
 
     // Стоимость — всегда одинакова
     const husbandCost = 50;
@@ -9556,32 +9543,6 @@ function checkThoughtCollisions() {
                     snd('pickup');
                     tc.thoughtsBlocked = (tc.thoughtsBlocked || 0) + 1;
                     sessionStats.catThoughtsBlocked = (sessionStats.catThoughtsBlocked || 0) + 1;
-                    hit = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!hit) {
-            // Подростки перехватывают мысли первыми — любой тип бьёт их радиус
-            for (let child of children) {
-                if (!child.isTeenager) continue;
-                // ИЗМЕНЕНИЕ: Пропускаем летящих младенцев (хотя подростки не должны летать, но для безопасности)
-                if (child.isFlying) continue;
-                
-                const childPos = getChildPosition(child);
-                const dist = Math.hypot(childPos.x - t.x, childPos.y - t.y);
-                // ИСПРАВЛЕНИЕ 5: Подростки сбивают мысли только если мысль НЕ в тумане
-                if (dist < 40 && !isFogAt(t.x, t.y)) {
-                    // ИЗМЕНЕНИЕ 3: Синяя подсветка подростку при сбивании мысли
-                    child.interactionFlash = 0.2;
-                    
-                    child.radius = Math.round(Math.max(0, (child.radius || 0) - damage));
-                    const childEmoji = getChildEmoji(child);
-                    showFloatingText(t.x, t.y, `-${damage} ${childEmoji}`, '#ff6666');
-                    snd('thought');
-                    snd('pickup'); // Звук хлопка при уничтожении мысли
-                    child.thoughtsBlocked = (child.thoughtsBlocked || 0) + 1;
                     hit = true;
                     break;
                 }
@@ -9846,9 +9807,11 @@ function updateBlade(dt) {
     // Обновляем кулдауны
     if (wife.bladeHitCooldown > 0) wife.bladeHitCooldown -= dt;
     if (wife.bladeAngerHitCooldown > 0) wife.bladeAngerHitCooldown -= dt;
+    if (wife.bladeAlcoholHitCooldown > 0) wife.bladeAlcoholHitCooldown -= dt;
     for (let child of children) {
         if (child.bladeHitCooldown > 0) child.bladeHitCooldown -= dt;
         if (child.bladeAngerHitCooldown > 0) child.bladeAngerHitCooldown -= dt;
+        if (child.bladeAlcoholHitCooldown > 0) child.bladeAlcoholHitCooldown -= dt;
     }
     
     // ====== ЛОПАСТЬ ОТ НИЗКОГО РАДИУСА (≤150) ======
@@ -9868,7 +9831,6 @@ function updateBlade(dt) {
     }
     
     // Обновляем состояние лопасти опасности
-    bladeLowRadiusWasActive = bladeLowRadiusActive;
     bladeLowRadiusWasActiveLastFrame = bladeLowRadiusActive;
     
     if (bladeLowRadiusActive) {
@@ -10132,7 +10094,7 @@ function updateBlade(dt) {
         
         // Проверка столкновения с женой
         const dist = Math.hypot(wife.x - husband.x, wife.y - husband.y);
-        if (dist <= husband.radius && wife.bladeAngerHitCooldown <= 0) {
+        if (dist <= husband.radius && wife.bladeAlcoholHitCooldown <= 0) {
             const angleToWife = Math.atan2(wife.y - husband.y, wife.x - husband.x);
             let normBladeAngle = bladeAlcoholAngle;
             let normWifeAngle = angleToWife;
@@ -10147,14 +10109,14 @@ function updateBlade(dt) {
                 wife.damageFlash = 0.2;
                 showFloatingText(wife.x, wife.y - 60, '-5🍺', '#ff4444');
                 snd('thought');
-                wife.bladeAngerHitCooldown = 0.5;
+                wife.bladeAlcoholHitCooldown = 0.5;
                 checkWifeRadiusDeath();
             }
         }
         
         // Проверка столкновения с подростками
         for (let child of children) {
-            if (child.isTeenager && child.radius > 0 && child.bladeAngerHitCooldown <= 0) {
+            if (child.isTeenager && child.radius > 0 && child.bladeAlcoholHitCooldown <= 0) {
                 const childPos = getChildPosition(child);
                 const distToChild = Math.hypot(childPos.x - husband.x, childPos.y - husband.y);
                 
@@ -10173,7 +10135,7 @@ function updateBlade(dt) {
                         child.damageFlash = 0.2;
                         showFloatingText(childPos.x, childPos.y - 40, '-5🍺', '#ff4444');
                         snd('thought');
-                        child.bladeAngerHitCooldown = 0.5;
+                        child.bladeAlcoholHitCooldown = 0.5;
                     }
                 }
             }
@@ -10241,16 +10203,18 @@ function updateBlade(dt) {
         bladeAlcoholAngle = 0;
     }
 
-    // ====== ЛЕДЯНАЯ ЛОПАСТЬ ♑️ (каждые 5 сек, активна 1 сек, угол сохраняется) ======
+    // ====== ЛЕДЯНАЯ ЛОПАСТЬ ♑️ (каждые 5 сек, активна 3.6 сек за оборот × (1 + грязь), угол сохраняется) ======
     if (husbandArchetype && husbandArchetype.id === 'capricorn') {
         if (!iceBladeActive) {
             iceBladeTimer -= dt;
             if (iceBladeTimer <= 0) {
                 iceBladeActive = true;
-                iceBladeActiveTimer = 1;
                 iceBladesFadeTimer = 1;
                 const dirtCount = getDirtCellCount();
                 iceBladeRotationsLeft = 1 + dirtCount;
+                // 100°/сек (та же скорость, что и во время вращения ниже) => 3.6 сек на один полный оборот
+                const secPerRotation = 360 / 100;
+                iceBladeActiveTimer = iceBladeRotationsLeft * secPerRotation;
                 if (dirtCount > 0) {
                     showFloatingText(husband.x, husband.y - 80, '⁉️🏚', '#aaaaaa');
                 }
@@ -10354,8 +10318,6 @@ function updateBlade(dt) {
             // Заморозка комплиментов на орбите
             for (const oc of orbitCompliments) {
                 if ((oc.frozenTimer || 0) > 0) continue;
-                const ocX = husband.x + Math.cos(oc.angle) * husband.radius;
-                const ocY = husband.y + Math.sin(oc.angle) * husband.radius;
                 let a = oc.angle; if (a < 0) a += Math.PI * 2;
                 let diff = a - iceBladeAngle; if (diff < 0) diff += Math.PI * 2;
                 if (diff <= bladeArc) {
@@ -10488,7 +10450,7 @@ function updateBlade(dt) {
                     child.radius = Math.round((child.radius || 0) + 5);
                     child.healFlash = 0.2;
                     const childEmoji = getChildEmoji(child);
-                    showFloatingText(childPos.x, childPos.y - 30, '+5🪙', '#4caf50');
+                    showFloatingText(childPos.x, childPos.y - 30, `${childEmoji}+5🪙`, '#4caf50');
                     child._bossHitCooldown = BOSS_HIT_COOLDOWN;
                 }
             }
@@ -10511,6 +10473,7 @@ function getBaseSafetyTimer() {
 }
 
 function updateTimer(dt) {
+    if (gamePaused) return;
     const dist = Math.hypot(wife.x - husband.x, wife.y - husband.y);
     let inSafeZone = dist <= husband.radius;
     
@@ -10711,8 +10674,8 @@ function drawLightingOverlay() {
     const w = canvas.width;
     const h = canvas.height;
 
-    lightCanvas.width = w;
-    lightCanvas.height = h;
+    if (lightCanvas.width !== w) lightCanvas.width = w;
+    if (lightCanvas.height !== h) lightCanvas.height = h;
 
     // Темнота — 50% непрозрачности
     const DARK_ALPHA = 0.5;
@@ -10784,7 +10747,7 @@ function drawLightingOverlay() {
 }
 
 // ========== RENDER ==========
-function render() {
+function render(dt = 0.016) {
     // БИТВА С СУДЬЕЙ: Во время lock/fight камера следит за мужем
     if (judgeBattle.phase === 'lock' || judgeBattle.phase === 'fight') {
         camera.x = husband.x - canvas.width / 2;
@@ -10859,10 +10822,18 @@ function render() {
             // Определяем чанк для этого тайла
             const chunkX = Math.floor(tileX / CHUNK_SIZE);
             const chunkY = Math.floor(tileY / CHUNK_SIZE);
-            const biomeName = getBiomeForChunk(chunkX, chunkY);
             
-            // Получаем цвет биома для этого тайла
-            ctx.fillStyle = getBiomeColor(biomeName, tileX, tileY);
+            // Цвет тайла зависит только от координат и worldSeed, поэтому кэшируем
+            // результат вместо пересчёта на каждом кадре (см. tileColorCache выше)
+            const tileCacheKey = tileX + '_' + tileY;
+            let tileColor = tileColorCache.get(tileCacheKey);
+            if (tileColor === undefined) {
+                const biomeName = getBiomeForChunk(chunkX, chunkY);
+                tileColor = getBiomeColor(biomeName, tileX, tileY);
+                tileColorCache.set(tileCacheKey, tileColor);
+            }
+            
+            ctx.fillStyle = tileColor;
             ctx.fillRect(sx, sy, tileSize, tileSize);
         }
     }
@@ -11044,7 +11015,7 @@ function render() {
         
         // Убираем временную вспышку
         if (item.damageFlash > 0) {
-            item.damageFlash -= 0.016; // ~60 FPS
+            item.damageFlash -= dt;
             if (item.damageFlash < 0) item.damageFlash = 0;
         }
     }
@@ -11747,7 +11718,7 @@ function render() {
             ctx.restore();
             ctx.font = '16px Arial';
             ctx.fillText('❄️', cx - 8, cy - 28);
-            ctx.font = ctx._savedFont || '36px Arial';
+            ctx.font = '36px Arial';
         } else {
             ctx.fillText(getChildEmoji(child), cx - offset, cy + offset);
         }
@@ -12419,14 +12390,6 @@ function menuClick() {
     o.start(t); o.stop(t + 0.2);
 }
 
-function hideMainMenu() {
-    stopMenuMusic();
-    const menu = document.getElementById('mainMenu');
-    menu.style.opacity = '0';
-    menu.style.transition = 'opacity 0.5s';
-    setTimeout(() => { menu.classList.add('hidden'); }, 500);
-}
-
 function menuStartGame() {
     menuClick();
     setTimeout(() => {
@@ -12631,7 +12594,7 @@ function getWeddingSymbol(years) {
 
 function saveSessionToRating() {
     let rating = [];
-    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){}
+    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){ console.warn('Не удалось прочитать сохранённый рейтинг, начинаю с пустого:', e); }
     // Считаем суммарные годы
     let totalYears = 0;
     for (const k in sessionStats.marriageYears) totalYears += sessionStats.marriageYears[k];
@@ -12744,7 +12707,7 @@ function saveSessionToRating() {
     rating.sort((a,b) => b.totalYears - a.totalYears);
     // Храним топ-50
     if (rating.length > 50) rating = rating.slice(0, 50);
-    try { localStorage.setItem(RATING_KEY, JSON.stringify(rating)); } catch(e){}
+    try { localStorage.setItem(RATING_KEY, JSON.stringify(rating)); } catch(e){ console.warn('Не удалось сохранить рейтинг:', e); }
 }
 
 function getWifeEmojiByAge(age) {
@@ -12780,7 +12743,7 @@ function renderRating() {
     const list = document.getElementById('ratingList');
     const empty = document.getElementById('ratingEmpty');
     let rating = [];
-    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){}
+    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){ console.warn('Не удалось прочитать сохранённый рейтинг, начинаю с пустого:', e); }
     
     // Удаляем старые карточки
     Array.from(list.querySelectorAll('.rating-card')).forEach(el => el.remove());
@@ -12846,7 +12809,7 @@ function renderRating() {
                 receiptsBlocked:(entry.receiptsBlockedByHusband||{})[emoji]||0 };
             const arcIcon = (entry.archetypeByHusband || {})[emoji] || '🆔';
             const arcIconHtml = arcIcon === '♑️' ? `<span data-cap="1" style="cursor:pointer;font-size:0.8em;vertical-align:middle;">${arcIcon}</span>` : `<span style="font-size:0.8em;vertical-align:middle;">${arcIcon}</span>`;
-            husbandsHtml += `<span class="rating-husband-badge" data-badgetip='${JSON.stringify(hD).replace(/'/g,"&apos;")}'>${displayEmoji}${arcIconHtml}${divStr} ${sym} ${years} ${getAgeWord(years)}</span>`;
+            husbandsHtml += `<span class="rating-husband-badge" data-badgetip='${JSON.stringify(hD).replace(/'/g,"&apos;")}'>${displayEmoji}${arcIconHtml} ${husbAgeStr}${divStr} ${sym} ${years} ${getAgeWord(years)}</span>`;
         }
 
         // Дети — вторая строка
@@ -12898,6 +12861,7 @@ function renderRating() {
                 <span class="rating-date">${entry.sessionDuration ? `<b>⏱ ${entry.sessionDuration}</b><br>` : ''}${entry.date} ${entry.time}</span>
             </div>
             ${childrenHtml}
+            ${departedHtml}
             <button class="rating-copy-btn" title="Копировать статистику сессии">🪪</button>`;
 
         card.addEventListener('mouseenter', (e) => { menuHover(); showRatingTooltip(e, entry); });
@@ -12929,36 +12893,11 @@ let ratingTooltipEl = null;
 
 // ====== TOOLTIP КОЗЕРОГА ======
 (function() {
-    const TIP_HTML = '♑️ - Козерог<br>✅ - 👔🔨🏺🏜️<br>❌ - 🥱🆓🧸<br>👿 - 👑❄️';
     let tipEl = null;
-    let visible = false;
 
     function getTip() {
         if (!tipEl) tipEl = document.getElementById('capricornTooltip');
         return tipEl;
-    }
-
-    function show(x, y) {
-        const t = getTip(); if (!t) return;
-        t.style.display = 'block';
-        visible = true;
-        move(x, y);
-    }
-
-    function hide() {
-        const t = getTip(); if (!t) return;
-        t.style.display = 'none';
-        visible = false;
-    }
-
-    function move(x, y) {
-        const t = getTip(); if (!t) return;
-        const tw = t.offsetWidth || 180, th = t.offsetHeight || 100;
-        let lx = x + 16, ly = y - th - 8;
-        if (lx + tw > window.innerWidth) lx = x - tw - 16;
-        if (ly < 4) ly = y + 16;
-        t.style.left = lx + 'px';
-        t.style.top  = ly + 'px';
     }
 
     function isCapricornEl(el) {
@@ -12982,11 +12921,6 @@ let ratingTooltipEl = null;
         }
     }, true);
 })();
-
-function _showCapTip(e) {}
-function _hideCapTip() {}
-function _moveCapricornTip(e) {}
-function _getCapTip() { return document.getElementById('capricornTooltip'); }
 
 
 function showBadgeTooltip(e, d) {
@@ -13199,7 +13133,7 @@ function copySessionData(entry) {
 
 function copyAllRatingData() {
     let rating = [];
-    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){}
+    try { rating = JSON.parse(localStorage.getItem(RATING_KEY) || '[]'); } catch(e){ console.warn('Не удалось прочитать сохранённый рейтинг, начинаю с пустого:', e); }
     if (rating.length === 0) { showCopyFeedback('Нет данных'); return; }
     const lines = [];
     lines.push(`🎮 MY BEST WIFE — ВСЯ СТАТИСТИКА (${rating.length} сессий)`);
@@ -13265,7 +13199,6 @@ function settingsGoBack() {
 }
 
 let settingsMusicNode = null;
-let settingsMusicOn = true;
 
 function startSettingsMusic() {
     if (!menuMusicOn) return;
@@ -13324,6 +13257,7 @@ function menuExit() {
 let exitSoundInterval = null;
 function startExitSound() {
     if (exitSoundInterval) return;
+    let playsLeft = 6; // самоограничение: с этого экрана нет пути назад, интервал больше некому остановить
     function playBlock() {
         const ac = audioCtx;
         const o = ac.createOscillator();
@@ -13335,6 +13269,8 @@ function startExitSound() {
         g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.25);
         o.connect(g); g.connect(ac.destination);
         o.start(ac.currentTime); o.stop(ac.currentTime + 0.3);
+        playsLeft--;
+        if (playsLeft <= 0 && exitSoundInterval) { clearInterval(exitSoundInterval); exitSoundInterval = null; }
     }
     playBlock();
     exitSoundInterval = setInterval(playBlock, 1800);
@@ -13536,7 +13472,6 @@ tryStartMenuMusic();
     ];
     const MEN_COUNT = 10;
     const EMOJI_SIZE = 44;
-    const ORBIT_R = 80;
     const allMen = [];
 
     // Центр вершины горы — верхний ряд горы (mRow:nth-child(1)) находится выше всего.
@@ -13683,7 +13618,6 @@ tryStartMenuMusic();
     // История позиций курсора: [{x, y, t}, ...]  — новые в конце
     const history = [];
 
-    const rect0 = sceneEl.getBoundingClientRect();
     for (let i = 0; i < 5; i++) history.push({ x: mouseX, y: mouseY, t: performance.now() });
 
     menuEl.addEventListener('mousemove', (e) => {
@@ -14341,18 +14275,6 @@ function playSoundFurnitureGrab() {
     o.start(t); o.stop(t + 0.15);
 }
 
-function playSoundFurnitureBlock() {
-    const ac = audioCtx; const t = ac.currentTime;
-    const o = ac.createOscillator(); const g = ac.createGain();
-    o.type = 'square';
-    o.frequency.setValueAtTime(120, t);
-    o.frequency.exponentialRampToValueAtTime(80, t + 0.18);
-    g.gain.setValueAtTime(0.22, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-    o.connect(g); g.connect(ac.destination);
-    o.start(t); o.stop(t + 0.25);
-}
-
 function playSoundFurnitureDrop() {
     const ac = audioCtx; const t = ac.currentTime;
     const o = ac.createOscillator(); const g = ac.createGain();
@@ -14447,7 +14369,9 @@ function openHouseScreen() {
     if (!gameActive) return;
     houseLastOpenedIgDays = igDays;
     buildHouseGrid();
-    generateWifeWishCells();
+    if (wifeWishCells.length === 0) {
+        generateWifeWishCells();
+    }
     if (husbandArchetype && husbandArchetype.id === 'capricorn' && husbandDesireCells.length === 0) {
         generateHusbandDesireCells();
     }
